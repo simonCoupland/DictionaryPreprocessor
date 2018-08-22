@@ -7,6 +7,26 @@
 
 using namespace std;
 
+
+float stdDev(float data[])
+{
+	float sum = 0.0, mean, standardDeviation = 0.0;
+
+	int i;
+
+	for (i = 0; i < 10; ++i)
+	{
+		sum += data[i];
+	}
+
+	mean = sum / 10;
+
+	for (i = 0; i < 10; ++i)
+		standardDeviation += pow(data[i] - mean, 2);
+
+	return sqrt(standardDeviation / 10);
+}
+
 int main()
 {
 	map <string, vector<pair<float, float>>> surveyData;
@@ -106,14 +126,19 @@ int main()
 
 	// Data structure to hold histogram for each word
 	map<string, array<int, binCount>> histograms;
+
+	// Data structure to hold normalised histogram for each word
+	map<string, array<float, binCount>> normalisedHistograms;
+
 	// Data structure to hold max frequency for each word
 	map<string, int> maxFreq;
 
 	// For each word in the survey data
 	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
 	{
-		// Add an empty histogram array
+		// Add empty histogram arrays
 		histograms[it->first] = array<int, binCount>();
+		normalisedHistograms[it->first] = array<float, binCount>();
 		// Add zero max freq
 		maxFreq[it->first] = 0;
 
@@ -121,7 +146,7 @@ int main()
 		float currentValue = start;
 		for (int i = 0; i < binCount; i++)
 		{
-			// and for each data interval add 1 if the cuurent value is inside it
+			// and for each data interval add 1 to histogram if the cuurent value is inside it
 			for (int j = 0; j < it->second.size(); j++)
 			{
 				if (it->second[j].first <= currentValue && currentValue <= it->second[j].second)
@@ -137,7 +162,76 @@ int main()
 			}
 			currentValue += interval;
 		}
+
+		// Normalise histogram
+		for (int i = 0; i < binCount; i++)
+		{
+			normalisedHistograms[it->first].at(i) = (float)histograms[it->first].at(i) / (float)maxFreq[it->first];
+		}
 	}
 
 	// Now calculate the mean and standard deviation for each histogram
+
+	// Data structure to hold mean and stDev for each word
+	map<string, pair<float, float>> meanAndStDev;
+
+	// For each word in the survey data
+	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
+	{
+				// Calculate mean
+
+		float mean = 0.f;
+		float sum = 0.f;
+		float count = 0.f;
+
+		float currentValue = start;
+		for (int i = 0; i < binCount; i++)
+		{
+			sum += histograms[it->first].at(i) * currentValue; 
+			count += histograms[it->first].at(i);
+			currentValue += interval;
+		}
+		mean = sum / count;
+
+		currentValue = start;
+		count = 0.f;
+		float stdDev = 0;
+	
+		for (int i = 0; i < binCount; i++)
+		{
+			stdDev += powf(histograms[it->first].at(i) * currentValue - mean, 2.0f);
+			count += histograms[it->first].at(i);
+			currentValue += interval;
+		}
+
+		stdDev = sqrt(stdDev / (count - 1.0f));
+		meanAndStDev[it->first] = pair<float, float>(mean, stdDev);
+	}
+
+	// Write results out to file
+	ofstream out("histograms.csv");
+
+	// Write out data header
+	out << ",";
+	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
+	{
+		out << it->first << ",";
+	}
+	out << endl;
+
+	// Write out histogram data
+	float currentValue = start;
+	for (int i = 0; i < binCount; i++)
+	{
+		out << currentValue << ",";
+		for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
+		{
+			out << normalisedHistograms[it->first].at(i) << ",";
+		}
+		out << endl;
+		currentValue += interval;
+	}
+	
+	out.close();
+
 }
