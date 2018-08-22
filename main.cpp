@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <map>
+#include <array>
 
 using namespace std;
 
@@ -99,5 +100,44 @@ int main()
 	// Using a histogram approach so bin size is sensitive
 
 	const int binCount = 201;
+	float start = 0.f;
+	float end = 10.f;
+	float interval = (end - start) / (float(binCount - 1));
 
+	// Data structure to hold histogram for each word
+	map<string, array<int, binCount>> histograms;
+	// Data structure to hold max frequency for each word
+	map<string, int> maxFreq;
+
+	// For each word in the survey data
+	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
+	{
+		// Add an empty histogram array
+		histograms[it->first] = array<int, binCount>();
+		// Add zero max freq
+		maxFreq[it->first] = 0;
+
+		// Go through each bin value
+		float currentValue = start;
+		for (int i = 0; i < binCount; i++)
+		{
+			// and for each data interval add 1 if the cuurent value is inside it
+			for (int j = 0; j < it->second.size(); j++)
+			{
+				if (it->second[j].first <= currentValue && currentValue <= it->second[j].second)
+				{
+					// Add one to the histogram
+					histograms[it->first].at(i)++;
+					// finally check if we need to increase max frequency
+					if (histograms[it->first].at(i) > maxFreq[it->first])
+					{
+						maxFreq[it->first] = histograms[it->first].at(i);
+					}
+				}
+			}
+			currentValue += interval;
+		}
+	}
+
+	// Now calculate the mean and standard deviation for each histogram
 }
