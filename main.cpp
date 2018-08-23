@@ -7,6 +7,20 @@
 
 using namespace std;
 
+/*
+Implements the data cleaning approach
+Simon Coupland, J. M. Mendel and Dongrui Wu, “Enhanced Interval Approach for Encoding Words into
+Interval Type-2 Fuzzy Sets and Convergence of the Word FOUs,” IEEE World Congress on Computational
+Intelligence, Barcelona, Spain, July 2010.
+
+Based on Dongrui Wu's matlab implementation
+
+Creates histograms of remaining intervals and fits Gausian type-1 MF to these.
+
+Simon Coupland
+
+See GITHub for dates
+*/
 
 float stdDev(float data[])
 {
@@ -27,6 +41,83 @@ float stdDev(float data[])
 	return sqrt(standardDeviation / 10);
 }
 
+vector<pair<float, float>> dataClean(vector<pair<float, float>> intervals)
+{
+	// Outlier processing
+	vector<float> L, R, intLeng;
+	
+	for (int i = 0; i < intervals.size(); i++)
+	{
+		L.push_back(intervals[i].first);
+		R.push_back(intervals[i].second);
+		intLeng.push_back(R[i] - L[i]);
+	}
+
+	sort(L.begin(), L.end());
+	sort(R.begin(), R.end());
+	sort(intLeng.begin(), intLeng.end());
+
+	int nums = intervals.size();
+	int NN1 = floor((float)nums * 0.25f);
+	int NN2 = floor((float)nums * 0.75f);
+
+	// Compute Q(0.25), Q(0.75) and IQR for left - ends
+	float QL25, QL75, LIQR;
+	QL25 = L[NN1] + L[NN1 + 1];
+	QL75 = L[NN2] + L[NN2 + 1];
+	LIQR = QL75 - QL25;
+
+	// Compute Q(0.25), Q(0.75) and IQR for right - ends.
+	float QR25, QR75, RIQR;
+	QR25 = R[NN1] + R[NN1 + 1];
+	QR75 = R[NN2] + R[NN2 + 1];
+	RIQR = QR75 - QR25;
+	
+	// outlier processing for L and R
+	for (int i = 0; i < intervals.size(); )
+	{
+		if (L[i] < QL25 - 1.5f * LIQR || L[i] > QL75 + 1.5f * LIQR || R[i] < QR25 - 1.5f * RIQR || R[i] > QR75 + 1.5f * RIQR)
+		{
+			// Delete interval & L, R and intLeng
+			intervals.erase(intervals.begin() + i);
+			L.erase(L.begin() + i);
+			R.erase(R.begin() + i);
+			intLeng.erase(intLeng.begin() + i);
+		}
+		else
+		{
+			i++;
+		}
+	}
+
+	// Compute Q(0.25), Q(0.75) and IQR for interval length.
+	int n1 = intervals.size();
+	NN1 = floor((float)n1 * 0.25f);
+	NN2 = floor((float)n1 * 0.75f);
+	
+	float QLeng25 = intLeng[NN1] + intLeng[NN1 + 1];
+	float QLeng75 = intLeng[NN2] + intLeng[NN2 + 1];
+	float lengIQR = QLeng75 - QLeng25;
+
+	// outlier processing for interval length
+	for (int i = 0; i < intervals.size(); )
+	{
+		if (intLeng[i] < QLeng25 - 1.5f * lengIQR || intLeng[i] > QLeng75 * 1.5f * lengIQR)
+		{
+			// Delete interval & L, R and intLeng
+			intervals.erase(intervals.begin() + i);
+			L.erase(L.begin() + i);
+			R.erase(R.begin() + i);
+			intLeng.erase(intLeng.begin() + i);
+		}
+		else
+		{
+			i++;
+		}
+	}
+
+	return intervals;
+}
 int main()
 {
 	map <string, vector<pair<float, float>>> surveyData;
@@ -103,9 +194,10 @@ int main()
 						int index = counter / 2;
 
 						// Add inteval if it is not [0,10]
+						// Bad data processing, see Equation (1) in paper
 						if (!(leftEndPoint == 0.f && rightEndPoint == 10.f))
 						{
-							surveyData[words[index]].push_back(pair<float, float>(leftEndPoint, rightEndPoint));
+							surveyData[words[index]].push_back(pair<float, float>(leftEndPoint, rightEndPoint)); 
 						}
 					}
 				}
@@ -114,7 +206,16 @@ int main()
 		}
 		dataFile.close();
 	}
-	else cout << "Unable to open " << dataFileName << endl;
+	else 
+	{
+		cout << "Unable to open " << dataFileName << endl; 
+		exit(0);
+	}
+
+	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
+	{
+		it->second = dataClean(it->second);
+	}
 
 	// Find the mean and std for each word based on the intervals
 	// Using a histogram approach so bin size is sensitive
