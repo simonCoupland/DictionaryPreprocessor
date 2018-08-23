@@ -406,29 +406,58 @@ int main()
 	}
 
 	// Write results out to file
-	ofstream out("histograms.csv");
+	
+	ofstream cleanDataFile("cleanedIntervals.csv");
 
 	// Write out data header
-	out << ",";
 	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
 	{
-		out << it->first << ",";
+		cleanDataFile << it->first << ",,";
 	}
-	out << endl;
+	cleanDataFile << endl;
+
+	// Find max number of intervals
+	int maxSize = -1;
+	for (auto it = surveyData.begin(); it != surveyData.end(); ++it) maxSize = max(maxSize, (int)it->second.size());
+
+	// Write interval to file
+	for (int i = 0; i < maxSize; i++)
+	{
+		for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
+		{
+			if (i < it->second.size())
+				cleanDataFile << it->second[i].first << "," << it->second[i].second << ",";
+			else 
+				cleanDataFile << ",,";
+		}
+		cleanDataFile << "\n";
+	}
+
+	cleanDataFile.close();
+
+	ofstream histoFile("histograms.csv");
+
+	// Write out data header
+	histoFile << ",";
+	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
+	{
+		histoFile << it->first << ",";
+	}
+	histoFile << endl;
 
 	// Write out histogram data
 	float currentValue = start;
 	for (int i = 0; i < binCount; i++)
 	{
-		out << currentValue << ",";
+		histoFile << currentValue << ",";
 		for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
 		{
-			out << normalisedHistograms[it->first].at(i) << ",";
+			histoFile << normalisedHistograms[it->first].at(i) << ",";
 		}
-		out << endl;
+		histoFile << endl;
 		currentValue += interval;
 	}
 	
-	out.close();
+	histoFile.close();
 
 }
