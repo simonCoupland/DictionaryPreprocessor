@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <array>
+#include <algorithm>
 
 using namespace std;
 
@@ -22,23 +23,23 @@ Simon Coupland
 See GITHub for dates
 */
 
-float stdDev(float data[])
+float stdDev(vector<float> data, float & mean)
 {
-	float sum = 0.0, mean, standardDeviation = 0.0;
+	float sum = 0.0, standardDeviation = 0.0;
 
-	int i;
-
-	for (i = 0; i < 10; ++i)
+	for (int i = 0; i < data.size(); i++)
 	{
 		sum += data[i];
 	}
 
-	mean = sum / 10;
+	mean = sum / (float)data.size();
 
-	for (i = 0; i < 10; ++i)
-		standardDeviation += pow(data[i] - mean, 2);
+	for (int i = 0; i < data.size(); i++)
+	{
+		standardDeviation += powf(data[i] - mean, 2.0f);
+	}
 
-	return sqrt(standardDeviation / 10);
+	return sqrt(standardDeviation / (float)data.size());
 }
 
 vector<pair<float, float>> dataClean(vector<pair<float, float>> intervals)
@@ -63,14 +64,14 @@ vector<pair<float, float>> dataClean(vector<pair<float, float>> intervals)
 
 	// Compute Q(0.25), Q(0.75) and IQR for left - ends
 	float QL25, QL75, LIQR;
-	QL25 = L[NN1] + L[NN1 + 1];
-	QL75 = L[NN2] + L[NN2 + 1];
+	QL25 = L[NN1];
+	QL75 = L[NN2];
 	LIQR = QL75 - QL25;
 
 	// Compute Q(0.25), Q(0.75) and IQR for right - ends.
 	float QR25, QR75, RIQR;
-	QR25 = R[NN1] + R[NN1 + 1];
-	QR75 = R[NN2] + R[NN2 + 1];
+	QR25 = R[NN1];
+	QR75 = R[NN2];
 	RIQR = QR75 - QR25;
 	
 	// outlier processing for L and R
@@ -115,6 +116,97 @@ vector<pair<float, float>> dataClean(vector<pair<float, float>> intervals)
 			i++;
 		}
 	}
+
+	//Tolerance limit processing, see Equation(3) in paper
+	float meanL;
+	float stdL = stdDev(L, meanL);
+	float meanR;
+	float stdR = stdDev(R, meanR);
+
+	float K[25] = { 32.019, 32.019, 8.380, 5.369, 4.275, 3.712, 3.369, 3.136, 2.967, 2.839, 2.737, 2.655, 2.587, 2.529, 2.48, 2.437, 2.4, 2.366, 2.337, 2.31, 2.31, 2.31, 2.31, 2.31, 2.208 };
+	float k = K[min((int)intervals.size()-1, 24)];
+
+	//Tolerance limit processing for L and R
+	for (int i = 0; i < intervals.size(); )
+	{
+		if (L[i] < meanL - k * stdL || L[i] > meanL + k * stdL || R[i] < meanR - k * stdR || R[i] > meanR + k  * stdR)
+		{
+			// Delete interval & L, R and intLeng
+			intervals.erase(intervals.begin() + i);
+			L.erase(L.begin() + i);
+			R.erase(R.begin() + i);
+			intLeng.erase(intLeng.begin() + i);
+		}
+		else
+		{
+			i++;
+		}
+	}
+
+	// Tolerance limit processing for interval length
+	float meanLeng;
+	float stdLeng = stdDev(intLeng, meanLeng);
+
+	k = min(min(K[min((int)intervals.size() - 1, 24)], meanLeng / stdLeng), (10.f - meanLeng) / stdLeng);
+	for (int i = 0; i < intervals.size(); )
+	{
+		if (intLeng[i] < meanLeng - k * stdLeng || intLeng[i] > meanLeng + k * stdLeng)
+		{
+			// Delete interval & L, R and intLeng
+			intervals.erase(intervals.begin() + i);
+			L.erase(L.begin() + i);
+			R.erase(R.begin() + i);
+			intLeng.erase(intLeng.begin() + i);
+		}
+		else
+		{
+			i++;
+		}
+	}
+
+	// Reasonable interval processing, see Equation(4) - (6) in paper
+	stdL = stdDev(L, meanL);
+	stdR = stdDev(R, meanR);
+
+	// Determine sigma*
+	float barrier;
+
+	if (stdL == stdR)
+		barrier = (meanL + meanR) / 2.0f;
+	else if (stdL == 0)
+		barrier = meanL + 0.01f;
+	else if (stdR == 0)
+		barrier = meanR - 0.01f;
+	else
+	{
+		float barrier1, barrier2;
+		float stdL2 = powf(stdL, 2.0f);
+		float stdR2 = powf(stdR, 2.0f);
+
+		barrier1 = (meanR * stdL2 - meanL * stdR2 + stdL * stdR * sqrtf(powf((meanL - meanR), 2.0f) + 2.0f * (stdL2 - stdR2) * log(stdL / stdR))) / (stdL2 - stdR2);
+		barrier2 = (meanR * stdL2 - meanL * stdR2 - stdL * stdR * sqrtf(powf((meanL - meanR), 2.0f) + 2.0f * (stdL2 - stdR2) * log(stdL / stdR))) / (stdL2 - stdR2);
+		if  (barrier1 >= meanL && barrier1 <= meanR)
+			barrier = barrier1;
+		else
+			barrier = barrier2;
+	}
+	// Reasonable interval processing
+	for (int i = 0; i < intervals.size(); )
+	{
+		if (L[i] >= barrier || R[i] <= barrier || L[i] < 2.0f * meanL - barrier || R[i] > 2.0f * meanR - barrier)
+		{
+			// Delete interval & L, R and intLeng
+			intervals.erase(intervals.begin() + i);
+			L.erase(L.begin() + i);
+			R.erase(R.begin() + i);
+			intLeng.erase(intLeng.begin() + i);
+		}
+		else
+		{
+			i++;
+		}
+	}
+
 
 	return intervals;
 }
@@ -250,6 +342,10 @@ int main()
 			// and for each data interval add 1 to histogram if the cuurent value is inside it
 			for (int j = 0; j < it->second.size(); j++)
 			{
+				if (i == binCount - 1)
+				{
+					currentValue = 10.f; // FP number fix
+				}
 				if (it->second[j].first <= currentValue && currentValue <= it->second[j].second)
 				{
 					// Add one to the histogram
@@ -279,7 +375,7 @@ int main()
 	// For each word in the survey data
 	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
 	{
-				// Calculate mean
+		// Calculate mean
 
 		float mean = 0.f;
 		float sum = 0.f;
