@@ -436,7 +436,6 @@ int main()
 		cleanDataFile << "sigma," << momAndStDev[it->first].second << ",";
 	}
 	cleanDataFile << endl;
-	cleanDataFile << endl;
 
 	cleanDataFile << "Cleaned intervals" << endl;
 	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
