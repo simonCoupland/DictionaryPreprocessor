@@ -425,12 +425,6 @@ int main()
 	}
 	cleanDataFile << endl;
 
-	cleanDataFile << "Cleaned intervals" << endl;
-	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
-	{
-		cleanDataFile << it->first << ",,";
-	}cleanDataFile << endl;
-
 	// Find max number of intervals
 	int maxSize = -1;
 	for (auto it = surveyData.begin(); it != surveyData.end(); ++it) maxSize = max(maxSize, (int)it->second.size());
