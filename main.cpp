@@ -425,18 +425,6 @@ int main()
 	}
 	cleanDataFile << endl;
 
-	// Write mean and Std Dev
-	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
-	{
-		cleanDataFile << "C," << momAndStDev[it->first].first << ",";
-	}
-	cleanDataFile << endl;
-	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
-	{
-		cleanDataFile << "sigma," << momAndStDev[it->first].second << ",";
-	}
-	cleanDataFile << endl;
-
 	cleanDataFile << "Cleaned intervals" << endl;
 	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
 	{
@@ -469,6 +457,20 @@ int main()
 	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
 	{
 		histoFile << it->first << ",";
+	}
+	histoFile << endl;
+	// write out c and sigma
+	histoFile << "C,";
+	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
+	{
+		histoFile << momAndStDev[it->first].first << ",";
+	}
+	histoFile << endl;
+
+	histoFile << "Sigma,";
+	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
+	{
+		histoFile << momAndStDev[it->first].second << ",";
 	}
 	histoFile << endl;
 
