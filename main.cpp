@@ -222,7 +222,7 @@ int main()
 	const int lineLength = 2048;
 	char line[lineLength];
 
-	// Inout file stream to read the file
+	// Input file stream to read the file
 	ifstream dataFile(dataFileName);
 	// String stream to read each line from the file
 	stringstream lineProcessor;
@@ -250,13 +250,9 @@ int main()
 			{
 				// Add an empty vector for each word
 				surveyData[line] = vector<pair<float, float>>();
+				// Populate the words in correct (unsorted) order
+				words.push_back(line);
 			}
-		}
-		
-		// Populate the words in correct (sorted) order
-		for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
-		{
-			words.push_back(it->first);
 		}
 
 		// Read the remaining lines
@@ -367,42 +363,55 @@ int main()
 		}
 	}
 
-	// Now calculate the mean and standard deviation for each histogram
+	// Now calculate the MOM and standard deviation for each histogram
 
 	// Data structure to hold mean and stDev for each word
-	map<string, pair<float, float>> meanAndStDev;
+	map<string, pair<float, float>> momAndStDev;
 
 	// For each word in the survey data
 	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
 	{
-		// Calculate mean
+		// Calculate max
 
-		float mean = 0.f;
-		float sum = 0.f;
-		float count = 0.f;
-
+		float max = -1.0f;
 		float currentValue = start;
 		for (int i = 0; i < binCount; i++)
 		{
-			sum += histograms[it->first].at(i) * currentValue; 
-			count += histograms[it->first].at(i);
+			if (normalisedHistograms[it->first].at(i) > max) max = normalisedHistograms[it->first].at(i);
 			currentValue += interval;
 		}
-		mean = sum / count;
 
+		// Calculate MOM
+		float mom = 0.f;
+		float sum = 0.f;
+		float count = 0.f;
+
+		currentValue = start;
+		for (int i = 0; i < binCount; i++)
+		{
+			if (normalisedHistograms[it->first].at(i) == max)
+			{
+				sum += currentValue;
+				count++;
+			}
+			currentValue += interval;
+		}
+		mom = sum / count;
+
+		//Calculate StDev
 		currentValue = start;
 		count = 0.f;
 		float stdDev = 0;
 	
 		for (int i = 0; i < binCount; i++)
 		{
-			stdDev += powf(histograms[it->first].at(i) * currentValue - mean, 2.0f);
-			count += histograms[it->first].at(i);
+			stdDev += normalisedHistograms[it->first].at(i) * powf(currentValue - mom, 2.0f);
+			count++;
 			currentValue += interval;
 		}
 
 		stdDev = sqrt(stdDev / (count - 1.0f));
-		meanAndStDev[it->first] = pair<float, float>(mean, stdDev);
+		momAndStDev[it->first] = pair<float, float>(mom, stdDev);
 	}
 
 	// Write results out to file
@@ -416,11 +425,26 @@ int main()
 	}
 	cleanDataFile << endl;
 
+	// Write mean and Std Dev
+	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
+	{
+		cleanDataFile << "C," << momAndStDev[it->first].first << ",";
+	}
+	cleanDataFile << endl;
+	for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
+	{
+		cleanDataFile << "sigma," << momAndStDev[it->first].second << ",";
+	}
+	cleanDataFile << endl;
+	cleanDataFile << endl;
+
+	cleanDataFile << "Cleaned intervals" << endl;
+
 	// Find max number of intervals
 	int maxSize = -1;
 	for (auto it = surveyData.begin(); it != surveyData.end(); ++it) maxSize = max(maxSize, (int)it->second.size());
 
-	// Write interval to file
+	// Write intervals to file
 	for (int i = 0; i < maxSize; i++)
 	{
 		for (auto it = surveyData.begin(); it != surveyData.end(); ++it)
